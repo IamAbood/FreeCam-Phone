@@ -2649,6 +2649,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c14b15dffa2f4bd712103e857140aa04a4f2ff6e955c77d7eb8e53ee02a3b64"
 
 [[package]]
+name = "vcam-mf"
+version = "0.1.0"
+dependencies = [
+ "framebus",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
 name = "vello_common"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

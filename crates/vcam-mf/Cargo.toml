@@ -1,0 +1,25 @@
+[package]
+name = "vcam-mf"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "freecam_vcam_mf"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+framebus = { path = "../framebus" }
+windows-core = "0.58"
+
+[dependencies.windows]
+version = "0.58"
+features = [
+    "implement",
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_Registry",
+    "Win32_System_LibraryLoader",
+    "Win32_Media_MediaFoundation",
+    "Win32_Media_KernelStreaming",
+]
