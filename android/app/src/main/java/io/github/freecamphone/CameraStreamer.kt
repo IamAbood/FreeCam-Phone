@@ -116,6 +116,7 @@ class CameraStreamer(context: Context, private val preview: TextureView) {
     private fun chooseSize(sizes: Array<Size>, h: Int): Size {
         val wide = sizes.filter { it.width * 9 == it.height * 16 }
         return wide.firstOrNull { it.height == h }
+            ?: sizes.filter { it.height == h }.maxByOrNull { it.width }
             ?: wide.filter { it.height <= h }.maxByOrNull { it.height }
             ?: sizes.minByOrNull { Math.abs(it.height - h) }
             ?: Size(1280, 720)
