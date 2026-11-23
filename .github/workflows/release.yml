@@ -20,7 +20,9 @@ jobs:
         run: |
           choco install innosetup -y --no-progress
           $v = "${{ github.ref_name }}".TrimStart("v")
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\iscc.exe" "/DAppVersion=$v" "/DBinDir=$pwd\target\release" installer\freecam-phone.iss
+          $iscc = Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup*\ISCC.exe", "$env:ProgramFiles\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          & $iscc.FullName "/DAppVersion=$v" "/DBinDir=$pwd\target\release" installer\freecam-phone.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with: { name: windows, path: dist/*.exe }
 
