@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut video = std::fs::File::create("out.h264")?;
     let mut audio = std::fs::File::create("out.pcm")?;
     let start = Instant::now();
-    let (mut frames, mut bytes, mut audio_bytes) = (0u64, 0u64, 0u64);
+    let (mut frames, mut bytes, mut audio_bytes, mut last_pts) = (0u64, 0u64, 0u64, 0u64);
     while start.elapsed() < Duration::from_secs(secs) {
         match read_packet(&mut s)? {
             Packet::Hello { version, name } => println!("hello from {name:?} v{version}"),
@@ -63,7 +63,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     csd.len()
                 )
             }
-            Packet::VideoFrame { data, .. } => {
+            Packet::VideoFrame { data, pts_us, .. } => {
+                last_pts = pts_us;
                 frames += 1;
                 bytes += data.len() as u64;
                 video.write_all(&data)?;
@@ -72,7 +73,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 audio_bytes += data.len() as u64;
                 audio.write_all(&data)?;
             }
-            Packet::Pong { .. } | Packet::Stats(_) => {}
+            Packet::Pong { peer_us, .. } => {
+                // Phone clock now minus the newest frame's capture time.
+                println!(
+                    "frame age on phone clock: {} ms",
+                    (peer_us as i64 - last_pts as i64) / 1000
+                )
+            }
+            Packet::Stats(_) => {}
             other => println!("{other:?}"),
         }
     }
