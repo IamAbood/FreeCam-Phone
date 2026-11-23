@@ -9,3 +9,4 @@ license = "MIT"
 
 [profile.release]
 lto = "thin"
+strip = true

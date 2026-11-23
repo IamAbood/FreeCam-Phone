@@ -29,6 +29,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             name: "freecam-dump".into(),
         },
     )?;
+    // The phone drops silent clients after 5 s, so keep pinging.
+    let mut pinger = s.try_clone()?;
+    std::thread::spawn(move || {
+        let t0 = Instant::now();
+        while write_packet(
+            &mut pinger,
+            &Packet::Ping {
+                t_us: t0.elapsed().as_micros() as u64,
+            },
+        )
+        .is_ok()
+        {
+            std::thread::sleep(Duration::from_secs(1));
+        }
+    });
     let mut video = std::fs::File::create("out.h264")?;
     let mut audio = std::fs::File::create("out.pcm")?;
     let start = Instant::now();
@@ -57,7 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 audio_bytes += data.len() as u64;
                 audio.write_all(&data)?;
             }
-            Packet::Ping { t_us } => write_packet(&mut s, &Packet::Pong { t_us, peer_us: 0 })?,
+            Packet::Pong { .. } | Packet::Stats(_) => {}
             other => println!("{other:?}"),
         }
     }
