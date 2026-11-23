@@ -10,27 +10,34 @@ use windows::Win32::Media::MediaFoundation::*;
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
 
+/// DirectShow output size; phone frames are scaled to it.
+const DS_W: usize = 1920;
+const DS_H: usize = 1080;
+
 pub struct Outputs {
     bus: Option<Writer>,
     mf: Option<MfCamera>,
+    ds: Option<DsOut>,
     pub status: String,
+}
+
+struct DsOut {
+    cam: freecam_dshow::Camera,
+    bgr: Vec<u8>,
+    placeholder: Vec<u8>,
 }
 
 impl Outputs {
     pub fn new(backend: Backend) -> Outputs {
         let mf_available = mf_create_fn().is_some();
-        let (use_mf, _use_ds) = match backend {
+        let (use_mf, use_ds) = match backend {
             Backend::Auto => (mf_available, !mf_available),
             Backend::MediaFoundation => (true, false),
             Backend::DirectShow => (false, true),
             Backend::Both => (true, true),
         };
         let mut status = Vec::new();
-        let mut out = Outputs {
-            bus: None,
-            mf: None,
-            status: String::new(),
-        };
+        let mut out = Outputs::none();
         if use_mf {
             match Writer::create() {
                 Ok(w) => out.bus = Some(w),
@@ -44,6 +51,22 @@ impl Outputs {
                 Err(e) => status.push(format!("Media Foundation camera unavailable: {e}")),
             }
         }
+        if use_ds {
+            // fps 0: frames go out as they arrive (the phone paces them).
+            match freecam_dshow::Camera::new(DS_W, DS_H, 0.0) {
+                Some(cam) => {
+                    let mut placeholder = Vec::new();
+                    Frame::placeholder(DS_W, DS_H).to_bgr24_dib(&mut placeholder);
+                    out.ds = Some(DsOut {
+                        cam,
+                        bgr: Vec::new(),
+                        placeholder,
+                    });
+                    status.push("DirectShow camera active".into());
+                }
+                None => status.push("DirectShow camera busy (another softcam app running?)".into()),
+            }
+        }
         out.status = status.join("; ");
         out
     }
@@ -52,6 +75,7 @@ impl Outputs {
         Outputs {
             bus: None,
             mf: None,
+            ds: None,
             status: String::new(),
         }
     }
@@ -60,11 +84,21 @@ impl Outputs {
         if let Some(b) = &self.bus {
             let _ = b.publish(f);
         }
+        // Converting to BGR costs a few ms per frame, so only while an app is watching.
+        if let Some(ds) = self.ds.as_mut().filter(|d| d.cam.is_connected()) {
+            // ponytail: scalar NV12->BGR; SIMD or a GPU path if CPU use matters at 1080p60.
+            f.scaled(DS_W, DS_H).to_bgr24_dib(&mut ds.bgr);
+            ds.cam.send(&ds.bgr);
+        }
     }
 
-    /// Called ~10×/s while no phone video is flowing. The MF source draws its
+    /// Called ~10x/s while no phone video is flowing. The MF source draws its
     /// own placeholder when the bus goes stale, so only DirectShow needs this.
-    pub fn placeholder(&mut self) {}
+    pub fn placeholder(&mut self) {
+        if let Some(ds) = self.ds.as_mut().filter(|d| d.cam.is_connected()) {
+            ds.cam.send(&ds.placeholder);
+        }
+    }
 }
 
 type CreateFn = unsafe extern "system" fn(

@@ -2102,6 +2102,7 @@ dependencies = [
  "serde",
  "toml 1.2.2+spec-1.1.0",
  "tray-icon",
+ "vcam-dshow",
  "windows",
 ]
 
@@ -2647,6 +2648,13 @@ name = "uuid"
 version = "1.29.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c14b15dffa2f4bd712103e857140aa04a4f2ff6e955c77d7eb8e53ee02a3b64"
+
+[[package]]
+name = "vcam-dshow"
+version = "0.1.0"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "vcam-mf"

@@ -72,16 +72,24 @@ impl Frame {
         }
     }
 
-    /// Writes BGR24 rows top-down (what softcam expects).
-    pub fn to_bgr24(&self, out: &mut Vec<u8>) {
-        self.convert(out, 3, |px, r, g, b| px.copy_from_slice(&[b, g, r]));
+    /// Bottom-up BGR24 (a DIB with positive height, which softcam expects).
+    pub fn to_bgr24_dib(&self, out: &mut Vec<u8>) {
+        self.convert(out, 3, true, |px, r, g, b| px.copy_from_slice(&[b, g, r]));
     }
 
     pub fn to_rgba(&self, out: &mut Vec<u8>) {
-        self.convert(out, 4, |px, r, g, b| px.copy_from_slice(&[r, g, b, 255]));
+        self.convert(out, 4, false, |px, r, g, b| {
+            px.copy_from_slice(&[r, g, b, 255])
+        });
     }
 
-    fn convert(&self, out: &mut Vec<u8>, bpp: usize, put: impl Fn(&mut [u8], u8, u8, u8)) {
+    fn convert(
+        &self,
+        out: &mut Vec<u8>,
+        bpp: usize,
+        flip: bool,
+        put: impl Fn(&mut [u8], u8, u8, u8),
+    ) {
         let (w, h) = (self.width, self.height);
         out.resize(w * h * bpp, 0);
         let (y_plane, uv) = self.data.split_at(w * h);
@@ -95,7 +103,8 @@ impl Frame {
                 let r = (298 * c + 409 * e + 128) >> 8;
                 let g = (298 * c - 100 * d - 208 * e + 128) >> 8;
                 let b = (298 * c + 516 * d + 128) >> 8;
-                let o = (y * w + x) * bpp;
+                let oy = if flip { h - 1 - y } else { y };
+                let o = (oy * w + x) * bpp;
                 put(
                     &mut out[o..o + bpp],
                     r.clamp(0, 255) as u8,
